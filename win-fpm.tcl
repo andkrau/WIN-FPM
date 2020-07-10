@@ -18,6 +18,14 @@ if { ![info exists basePort] || ![info exists poolSize] || ![info exists phpDir]
     exit
 }
 
+set phpDir [string trimright $phpDir /]
+if {[file exists ${phpDir}/php-cgi.exe]} {
+    set phpDir ${phpDir}/php-cgi.exe
+} else {
+    puts "php-cgi.exe not found in ${phpDir}!"
+    exit
+}
+
 set host 127.0.0.1
 
 puts "Killing all other running PHP processes"

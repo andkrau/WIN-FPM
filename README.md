@@ -1,8 +1,8 @@
 # WIN-FPM
-Implements a sort of pseudo PHP-FPM on Windows
+Implements a PHP FastCGI Pool Manager on Windows
 
 ## Usage
 
 ```html
-win-fpm.exe -listenPort 9000 -threads 128 -path C:/php/php-cgi.exe
+win-fpm.exe -basePort 9001 -poolSize 8 -phpDir C:/php -fcgiChildren 2
 ```
