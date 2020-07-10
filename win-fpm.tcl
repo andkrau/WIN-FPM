@@ -1,4 +1,4 @@
-# Implements a sort of pseudo PHP-FPM on Windows
+# Implements a PHP FastCGI Pool Manager on Windows
 
 package require Thread
 
@@ -13,70 +13,46 @@ if { $argc > 0 } {
     puts "no command line arguments passed!"
     exit
 }
-if { ![info exists listenPort] || ![info exists threads] || ![info exists path] } {
+if { ![info exists basePort] || ![info exists poolSize] || ![info exists phpDir] || ![info exists fcgiChildren] } {
     puts "Missing arguments!"
     exit
 }
 
-set basePort [expr {$listenPort + 1}]
 set host 127.0.0.1
 
 puts "Killing all other running PHP processes"
-
 catch {exec -ignorestderr -- taskkill /F /IM php-cgi.exe 2> nul}
 
-puts "Creating $threads worker processes"
+puts "Disabling PHP Max Requests Limit"
+catch {exec cmd /C "setx PHP_FCGI_MAX_REQUESTS 0"}
 
-set pool [tpool::create -minworkers $threads -maxworkers $threads -initcmd {
+puts "Setting Number of PHP FastCGI Child Processes"
+catch {exec cmd /C "setx PHP_FCGI_CHILDREN $fcgiChildren"}
+
+puts "Creating pool of $poolSize PHP processes"
+
+set pool [tpool::create -minworkers $poolSize -maxworkers $poolSize -initcmd {
     proc spinUp {port path} {
         exec -- $path -b 127.0.0.1:${port}
+        puts "Restarting PHP process listening on port $port"
         spinUp $port $path
     }
 }]
 
 set i 0
-while {$i < $threads} {
-    lappend work [tpool::post -nowait $pool [list spinUp [expr {$basePort + $i}] $path]]
-    lappend portList [expr {$basePort + $i}]
+while {$i < $poolSize} {
+    puts "starting PHP process listening on port [expr {$basePort + $i}]"
+    lappend work [tpool::post -nowait $pool [list spinUp [expr {$basePort + $i}] $phpDir]]
     incr i
 }
 
-set freePorts $portList
-
-#Based upon http://wiki.tcl.tk/12670
-
-proc accept {sock addr p} {
-    global host freePorts
-    set port [lindex $freePorts 0]
-    set freePorts [lrange $freePorts 1 end]
-    set conn [socket -async $host $port]
-    fconfigure $sock -translation binary -buffering none -blocking 0
-    fconfigure $conn -translation binary -buffering none -blocking 0
-    puts "Relaying request to worker listening on port $port"
-    fileevent  $conn readable [list xfer $conn $sock]
-    fileevent  $sock readable [list xfer $sock $conn]
-    lappend freePorts $port
-}
-
-proc xfer {from to} {
-    if {([eof $from] || [eof $to]) || ([catch {read $from} data] || [catch {puts -nonewline $to $data}])} {
-        catch {close $from}
-        catch {close $to}
-    }
-}
-
-puts "Listening on port $listenPort for incoming requests"
-
-set server [socket -server accept $listenPort]
+puts "PHP FastCGI Pool Created!"
 
 foreach id $work {
     tpool::wait $pool $id
     set response [tpool::get $pool $id]
     puts "ERROR: $response"
+    puts "Killing any stray PHP processes"
+    catch {exec -ignorestderr -- taskkill /F /IM php-cgi.exe 2> nul}
     exit
 }
-
-tpool::release $pool
-
-puts "Killing any stray PHP processes"
-catch {exec -ignorestderr -- taskkill /F /IM php-cgi.exe 2> nul}
