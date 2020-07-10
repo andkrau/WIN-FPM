@@ -13,7 +13,7 @@ if { $argc > 0 } {
     puts "no command line arguments passed!"
     exit
 }
-if { ![info exists basePort] || ![info exists poolSize] || ![info exists phpDir] || ![info exists fcgiChildren] } {
+if { ![info exists basePort] || ![info exists poolSize] || ![info exists phpDir] || ![info exists fcgiChildren] || ![info exists listenHost]} {
     puts "Missing arguments!"
     exit
 }
@@ -25,8 +25,6 @@ if {[file exists ${phpDir}/php-cgi.exe]} {
     puts "php-cgi.exe not found in ${phpDir}!"
     exit
 }
-
-set host 127.0.0.1
 
 puts "Killing all other running PHP processes"
 catch {exec -ignorestderr -- taskkill /F /IM php-cgi.exe 2> nul}
@@ -40,17 +38,17 @@ catch {exec cmd /C "setx PHP_FCGI_CHILDREN $fcgiChildren"}
 puts "Creating pool of $poolSize PHP processes"
 
 set pool [tpool::create -minworkers $poolSize -maxworkers $poolSize -initcmd {
-    proc spinUp {port path} {
-        exec -- $path -b 127.0.0.1:${port}
+    proc spinUp {port path host} {
+        exec -- $path -b ${host}:${port}
         puts "Restarting PHP process listening on port $port"
-        spinUp $port $path
+        spinUp $port $path $host
     }
 }]
 
 set i 0
 while {$i < $poolSize} {
     puts "starting PHP process listening on port [expr {$basePort + $i}]"
-    lappend work [tpool::post -nowait $pool [list spinUp [expr {$basePort + $i}] $phpDir]]
+    lappend work [tpool::post -nowait $pool [list spinUp [expr {$basePort + $i}] $phpDir $listenHost]]
     incr i
 }
 
