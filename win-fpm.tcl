@@ -13,7 +13,7 @@ if { $argc > 0 } {
     puts "no command line arguments passed!"
     exit
 }
-if { ![info exists basePort] || ![info exists poolSize] || ![info exists phpDir] || ![info exists fcgiChildren] || ![info exists listenHost]} {
+if { ![info exists basePort] || ![info exists poolSize] || ![info exists phpDir] || ![info exists fcgiChildren] || ![info exists listenHost] || ![info exists errorLimit]} {
     puts "Missing arguments!"
     exit
 }
@@ -35,29 +35,46 @@ catch {exec cmd /C "setx PHP_FCGI_MAX_REQUESTS 0"}
 puts "Setting Number of PHP FastCGI Child Processes"
 catch {exec cmd /C "setx PHP_FCGI_CHILDREN $fcgiChildren"}
 
-puts "Creating pool of $poolSize PHP processes"
+set totalProcesses $poolSize
+set totalChildren [expr $fcgiChildren * $poolSize]
+if {$fcgiChildren > 0} {
+    set totalProcesses [expr $totalChildren + $poolSize]
+}
+
+puts "Creating pool of $poolSize PHP parent processes with $totalChildren total child processes"
 
 set pool [tpool::create -minworkers $poolSize -maxworkers $poolSize -initcmd {
-    proc spinUp {port path host} {
-        exec -- $path -b ${host}:${port}
-        puts "Restarting PHP process listening on port $port"
-        spinUp $port $path $host
+    proc spinUp {port path host stop fail} {
+        try {
+            exec -- $path -b ${host}:${port}
+        } on error {message} {
+            if {$fail > $stop} {
+                return $message
+            } else {
+                puts "PHP process ended with error: $message"
+            }
+            incr fail
+        } finally {
+            puts "Restarting PHP process listening on port $port"
+            spinUp $port $path $host $stop $fail
+        }
     }
 }]
 
 set i 0
 while {$i < $poolSize} {
     puts "starting PHP process listening on port [expr {$basePort + $i}]"
-    lappend work [tpool::post -nowait $pool [list spinUp [expr {$basePort + $i}] $phpDir $listenHost]]
+    lappend work [tpool::post -nowait $pool [list spinUp [expr {$basePort + $i}] $phpDir $listenHost $errorLimit 0]]
     incr i
 }
 
-puts "PHP FastCGI Pool Created!"
+puts "$totalProcesses total PHP processes started"
+puts "PHP FastCGI pool ready"
 
 foreach id $work {
     tpool::wait $pool $id
     set response [tpool::get $pool $id]
-    puts "ERROR: $response"
+    puts "ERROR LIMIT MET WITH MESSAGE: $response"
     puts "Killing any stray PHP processes"
     catch {exec -ignorestderr -- taskkill /F /IM php-cgi.exe 2> nul}
     exit
