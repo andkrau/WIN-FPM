@@ -28,6 +28,7 @@ if {[file exists ${phpDir}/php-cgi.exe]} {
 
 puts "Killing all other running PHP processes"
 catch {exec -ignorestderr -- taskkill /F /IM php-cgi.exe 2> nul}
+catch {exec wmic process where name="php-cgi.exe" delete 2> nul}
 
 puts "Disabling PHP Max Requests Limit"
 catch {exec cmd /C "setx PHP_FCGI_MAX_REQUESTS 0"}
