@@ -8,7 +8,7 @@ win-fpm.exe -basePort 9001 -poolSize 8 -phpDir C:/php -fcgiChildren 2 -listenHos
 ```
 ## NGINX Example
 
-```json
+```
 upstream winfpm {
     server 127.0.0.1:9001
     server 127.0.0.1:9002
@@ -30,7 +30,7 @@ location ~ \.php$ {
 
 ## Caddy 1.0 Example
 
-```json
+```
 fastcgi / 127.0.0.1:9001 php {
     upstream 127.0.0.1:9002
     upstream 127.0.0.1:9003
