@@ -6,6 +6,7 @@ Implements a PHP FastCGI Pool Manager on Windows
 ```
 win-fpm.exe -basePort 9001 -poolSize 8 -phpDir C:/php -fcgiChildren 2 -listenHost 127.0.0.1 -errorLimit 10
 ```
+
 ## NGINX Example
 
 ```
@@ -25,6 +26,21 @@ location ~ \.php$ {
     fastcgi_index  index.php;
     fastcgi_param  SCRIPT_FILENAME  $document_root$fastcgi_script_name;
     include        fastcgi_params;
+}
+```
+
+## Caddy 2.0 Example
+
+```
+php_fastcgi {
+        to localhost:9001
+        to localhost:9002
+        to localhost:9003
+        to localhost:9004
+        to localhost:9005
+        to localhost:9006
+        to localhost:9007
+        to localhost:9008
 }
 ```
 
