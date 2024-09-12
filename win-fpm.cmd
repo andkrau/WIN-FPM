@@ -4,6 +4,7 @@ call :readINI poolSize
 call :readINI phpDir
 call :readINI fcgiChildren
 call :readINI listenHost
+call :readINI watchdogFrequency
 call :readINI phpOptions
 
 :START
@@ -26,7 +27,7 @@ echo PHP FastCGI pool ready
 :WATCHDOG
 for /f "tokens=1,*" %%a in ('tasklist ^| find /I /C "php-cgi.exe"') do set running=%%a
 IF %running% NEQ %totalProcesses% goto restart
-TIMEOUT /T 10 /NOBREAK>nul
+TIMEOUT /T %watchdogFrequency% /NOBREAK>nul
 goto watchdog
 
 :RESTART
