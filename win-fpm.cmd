@@ -10,9 +10,9 @@ if not exist "%phpDir%/php-cgi.exe" goto noPHP
 echo Killing all other running PHP processes
 wmic process where name="php-cgi.exe" delete>nul
 echo Disabling PHP Max Requests Limit
-setx PHP_FCGI_MAX_REQUESTS 0 >nul
+set PHP_FCGI_MAX_REQUESTS=0
 echo Setting Number of PHP FastCGI Child Processes
-setx PHP_FCGI_CHILDREN %fcgiChildren% >nul
+set PHP_FCGI_CHILDREN=%fcgiChildren%
 set totalProcesses=%poolSize%
 set /a totalChildren=%fcgiChildren% * %poolSize%
 if %fcgiChildren% GTR 0 set /a totalProcesses=%totalChildren% + %poolSize%
