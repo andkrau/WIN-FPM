@@ -6,6 +6,7 @@ call :readINI fcgiChildren
 call :readINI listenHost
 call :readINI phpOptions
 
+:START
 if not exist "%phpDir%/php-cgi.exe" goto noPHP
 echo Killing all other running PHP processes
 wmic process where name="php-cgi.exe" delete>nul
@@ -21,8 +22,17 @@ echo Creating pool of %poolSize% PHP parent processes with %totalChildren% total
 FOR /L %%a IN (%basePort%,1,%maxPort%) DO echo Starting listener on port %%a && start /b "" "%phpDir%/php-cgi.exe" -b %listenHost%:%%a
 echo %totalProcesses% total PHP processes started
 echo PHP FastCGI pool ready
-pause>nul
-exit
+
+:WATCHDOG
+for /f "tokens=1,*" %%a in ('tasklist ^| find /I /C "php-cgi.exe"') do set running=%%a
+IF %running% NEQ %totalProcesses% goto restart
+TIMEOUT /T 10 /NOBREAK>nul
+goto watchdog
+
+:RESTART
+set/a exited=%totalProcesses% - %running%
+echo %exited% of %totalProcesses% PHP processes exited abnormally. Restarting PHP!
+goto start
 
 :readINI
 SET FOUND=""
