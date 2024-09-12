@@ -38,7 +38,7 @@ goto START
 :READINI
 set found=""
 for /f "tokens=1,* delims==" %%a in ('findstr /B /C:"%~1=" "config.ini"') do set %%a=%%b&& set found=%%b
-if %found% NEQ "" goto :EOF
+if "%found%" NEQ """" goto :EOF
 echo %~1 not found in config.ini!
 pause
 exit
